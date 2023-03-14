@@ -1,0 +1,51 @@
+name: Domoticz PR Check
+on:
+  pull_request:
+    branches:
+      - development
+      - master
+    paths-ignore:
+      - 'msbuild/**'
+      - '.github/**'
+      - 'tools/**'
+      - '**.md'
+      - '**.txt'
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+env:
+  PR_NR: ${{ github.event.pull_request.number }}
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    #runs-on: ubuntu-20.04
+     # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      # Prepare environment
+      - name: prepare environment
+        run: |
+          sudo timedatectl set-timezone Europe/Amsterdam
+          buildnr=$(git rev-list HEAD --count)
+          echo "BUILDNR=$(($buildnr + 2107))" >> $GITHUB_ENV
+          if [ "${GITHUB_EVENT_NAME}" == 'pull_request' ]; then
+            echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF} | tr / -)" >> $GITHUB_ENV
+            echo "PRNUMBER=$(echo ${PR_NR})" >> $GITHUB_ENV
+            echo "Domoticz build for PR ${PR_NR}! Building version $(($buildnr + 2107)) from branch ${GITHUB_HEAD_REF}"
+          else
+            echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | tr / -)" >> $GITHUB_ENV
+            echo "PRNUMBER=$(echo ${GITHUB_SHA})" >> $GITHUB_ENV
+          fi
+      # install dependencies
+      - name: dependencies
+        run: |
+          echo 'APT::Get::Always-Include-Phased-Updates "false";' | sudo tee /etc/apt/apt.conf.d/99-phased-updates
+          sudo apt-get update && sudo apt-get --autoremove upgrade
+          sudo apt-get install make gcc g++ libssl-dev git libcurl4-gnutls-dev libusb-dev python3-dev zlib1g-dev libcereal-dev liblua5.3-dev uthash-dev
+          sudo apt-get install python3-pytest python3-pytest-bdd
+
+
